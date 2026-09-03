@@ -50,12 +50,15 @@ jobs:
 
       - run: mise run --skip-tools windows:build:${{ matrix.arch }}
 
+      - name: Create zip archive
+        run: |
+          Compress-Archive -Path target/${{ matrix.target }}/release/openshell.exe, target/${{ matrix.target }}/release/openshell-gateway.exe -DestinationPath ${{ matrix.zip_name }}.zip
+        shell: pwsh
+
       - uses: actions/upload-artifact@ea165f8d65b6db9b8a1f7571828bae0b188b4df8 # v4.6.2
         with:
-          name: binaries-${{ matrix.arch }}
-          path: |
-            target/${{ matrix.target }}/release/openshell.exe
-            target/${{ matrix.target }}/release/openshell-gateway.exe
+          name: ${{ matrix.zip_name }}
+          path: ${{ matrix.zip_name }}.zip
 
   release:
     needs: build
@@ -70,4 +73,4 @@ jobs:
         with:
           name: ${{ inputs.version }}
           tag_name: ${{ inputs.version }}
-          files: artifacts/**/*.exe
+          files: artifacts/**/*.zip
