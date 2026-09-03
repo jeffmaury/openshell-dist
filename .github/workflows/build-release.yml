@@ -55,7 +55,7 @@ jobs:
           Compress-Archive -Path target/${{ matrix.target }}/release/openshell.exe, target/${{ matrix.target }}/release/openshell-gateway.exe -DestinationPath ${{ matrix.zip_name }}.zip
         shell: pwsh
 
-      - uses: actions/upload-artifact@ea165f8d65b6db9b8a1f7571828bae0b188b4df8 # v4.6.2
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ matrix.zip_name }}
           path: ${{ matrix.zip_name }}.zip
@@ -64,12 +64,12 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: artifacts
 
       - name: Create Release
-        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           name: ${{ inputs.version }}
           tag_name: ${{ inputs.version }}
