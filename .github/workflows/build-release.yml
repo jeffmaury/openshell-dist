@@ -9,8 +9,17 @@ on:
         type: string
 
 jobs:
-  build-and-release:
-    runs-on: windows-2025
+  build:
+    strategy:
+      matrix:
+        include:
+          - runner: windows-2025
+            target: x86_64-pc-windows-msvc
+            arch: x64
+          - runner: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -25,22 +34,35 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.95.0"
-          targets: x86_64-pc-windows-msvc
+          targets: ${{ matrix.target }}
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          shared-key: windows-msvc-x64
+          shared-key: windows-msvc-${{ matrix.arch }}
           cache-targets: "true"
           cache-on-failure: "true"
           cache-bin: "false"
 
-      - run: mise run --skip-tools windows:build:x64
+      - run: mise run --skip-tools windows:build:${{ matrix.arch }}
+
+      - uses: actions/upload-artifact@ea165f8d65b6db9b8a1f7571828bae0b188b4df8 # v4.6.2
+        with:
+          name: binaries-${{ matrix.arch }}
+          path: |
+            target/${{ matrix.target }}/release/openshell.exe
+            target/${{ matrix.target }}/release/openshell-gateway.exe
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          path: artifacts
 
       - name: Create Release
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
           name: ${{ inputs.version }}
           tag_name: ${{ inputs.version }}
-          files: |
-            target/x86_64-pc-windows-msvc/release/openshell.exe
-            target/x86_64-pc-windows-msvc/release/openshell-gateway.exe
+          files: artifacts/**/*.exe
