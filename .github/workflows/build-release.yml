@@ -1,0 +1,46 @@
+name: Build and Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to checkout and release (e.g. v1.0.0)"
+        required: true
+        type: string
+
+jobs:
+  build-and-release:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: nvidia/OpenShell
+          ref: ${{ inputs.version }}
+
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          install: false
+          experimental: true
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.95.0"
+          targets: x86_64-pc-windows-msvc
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: windows-msvc-x64
+          cache-targets: "true"
+          cache-on-failure: "true"
+          cache-bin: "false"
+
+      - run: mise run --skip-tools windows:build:x64
+
+      - name: Create Release
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
+        with:
+          name: ${{ inputs.version }}
+          tag_name: ${{ inputs.version }}
+          files: |
+            target/x86_64-pc-windows-msvc/release/openshell.exe
+            target/x86_64-pc-windows-msvc/release/openshell-gateway.exe
