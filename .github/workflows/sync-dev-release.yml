@@ -1,7 +1,12 @@
-name: Sync Dev Release
+name: Sync Release
 
 on:
   workflow_dispatch:
+    inputs:
+      release:
+        description: 'Upstream release tag to clone (e.g. dev, v0.1.0)'
+        required: false
+        default: 'dev'
   schedule:
     - cron: '0 6 * * *'
 
@@ -16,16 +21,29 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      UPSTREAM_RELEASE: ${{ inputs.release || 'dev' }}
     steps:
-      - name: Get upstream dev release commit
+      - name: Get upstream release info
         id: upstream
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          COMMIT_SHA=$(gh api repos/nvidia/OpenShell/commits/dev --jq '.sha')
-          SHORT_SHA="${COMMIT_SHA:0:8}"
+          RELEASE_INFO=$(gh api repos/nvidia/OpenShell/releases/tags/"$UPSTREAM_RELEASE" 2>/dev/null || true)
+          if [ -z "$RELEASE_INFO" ]; then
+            echo "::error::Release '$UPSTREAM_RELEASE' not found in nvidia/OpenShell"
+            exit 1
+          fi
+          COMMIT_SHA=$(echo "$RELEASE_INFO" | jq -r '.target_commitish')
+          if [ "$UPSTREAM_RELEASE" = "dev" ]; then
+            COMMIT_SHA=$(gh api repos/nvidia/OpenShell/commits/dev --jq '.sha')
+            SHORT_SHA="${COMMIT_SHA:0:8}"
+            VERSION="v${SHORT_SHA}"
+          else
+            VERSION="$UPSTREAM_RELEASE"
+          fi
           echo "commit_sha=$COMMIT_SHA" >> "$GITHUB_OUTPUT"
-          echo "version=v${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Check if release already exists
         id: check
@@ -45,7 +63,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p assets
-          gh release download dev --repo nvidia/OpenShell --dir assets
+          gh release download "$UPSTREAM_RELEASE" --repo nvidia/OpenShell --dir assets
 
       - name: Create release
         if: steps.check.outputs.exists == 'false'
@@ -55,7 +73,7 @@ jobs:
           gh release create "${{ steps.upstream.outputs.version }}" \
             --repo "${{ github.repository }}" \
             --title "${{ steps.upstream.outputs.version }}" \
-            --notes "Synced from nvidia/OpenShell dev release.
+            --notes "Synced from nvidia/OpenShell $UPSTREAM_RELEASE release.
 
           Upstream commit: https://github.com/nvidia/OpenShell/commit/${{ steps.upstream.outputs.commit_sha }}" \
             assets/*
